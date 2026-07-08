@@ -1,0 +1,98 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+# ==========================================
+# 1. PARAMETER DEFINITION (Aligned with Manuscript)
+# ==========================================
+# Convexity Constants (Satisfying the boundary condition η > (δγ²)/(4αδ - β²))
+alpha, beta, gamma, delta, eta = 2.0, 1.0, 1.0, 2.0, 3.0
+mu = 0.5  # Mobility coefficient
+
+# Rate Law Exponents & Friction
+kappa_base = 1.0  # Base adaptation constant
+m, n, p = 1.2, 0.8, 1.5  # Super-linear sensitivity exponents
+epsilon = 0.1  # Cognitive-logistical latency floor
+
+# S-Curve Asymptote Parameters
+R_min, R_upper, theta = 0.2, 0.9, 0.5 
+
+# ==========================================
+# 2. ARCHETYPE DEFINITIONS
+# ==========================================
+# Archetype A: Nigerian Institution (High Inertia, High Temp, Low Pressure)
+T_A, P_A, I_A = 0.9, 0.3, 0.8 
+
+# Archetype B: Silicon Valley Institution (Low Inertia, High Temp, High Pressure)
+T_B, P_B, I_B = 0.8, 0.8, 0.2 
+
+# ==========================================
+# 3. MATHEMATICAL DERIVATIONS
+# ==========================================
+# Calculate Equilibrium Concentration C* = (βT + γP) / 2α
+C_star_A = (beta * T_A + gamma * P_A) / (2 * alpha)
+C_star_B = (beta * T_B + gamma * P_B) / (2 * alpha)
+
+# Calculate Effective Adaptation Rate κ* = κ * (P^m * T^n) / (I + ε)^p
+kappa_star_A = kappa_base * (P_A**m * T_A**n) / ((I_A + epsilon)**p)
+kappa_star_B = kappa_base * (P_B**m * T_B**n) / ((I_B + epsilon)**p)
+
+# Calculate Inflection Point t0 (Inversely proportional to κ*)
+# Higher κ* means the inflection point arrives much earlier in calendar time.
+t0_A = 20 / kappa_star_A 
+t0_B = 20 / kappa_star_B 
+
+# Calculate Temperature-Dependent Asymptotic Ceiling R_max(T)
+R_max_A = R_min + (R_upper - R_min) * (T_A ** theta)
+R_max_B = R_min + (R_upper - R_min) * (T_B ** theta)
+
+# ==========================================
+# 4. NUMERICAL INTEGRATION & PLOTTING
+# ==========================================
+t = np.linspace(0, 100, 500) # Time vector (e.g., years)
+
+# --- Plot 1: Institutional Re-equilibration Dynamics (The ODE) ---
+def dC_dt(t, C, T, P):
+    X_C = -2 * alpha * C + beta * T + gamma * P
+    return mu * X_C * C * (1 - C)
+
+sol_A = solve_ivp(dC_dt, [0, 100], [0.1], args=(T_A, P_A), t_eval=t)
+sol_B = solve_ivp(dC_dt, [0, 100], [0.1], args=(T_B, P_B), t_eval=t)
+
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(sol_A.t, sol_A.y[0], label=f'Archetype A (Nigeria)\n$C^*$ = {C_star_A:.2f}', color='darkorange', linewidth=2)
+plt.plot(sol_B.t, sol_B.y[0], label=f'Archetype B (Silicon Valley)\n$C^*$ = {C_star_B:.2f}', color='navy', linewidth=2)
+plt.axhline(C_star_A, color='darkorange', linestyle='--', alpha=0.5)
+plt.axhline(C_star_B, color='navy', linestyle='--', alpha=0.5)
+plt.title('Fig 1: Re-intermediation Dynamics (ODE)', fontsize=12)
+plt.xlabel('Time (t)', fontsize=11)
+plt.ylabel('Concentration of Intermediation (C)', fontsize=11)
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# --- Plot 2: Temporal Trajectory (The Logistic S-Curve) ---
+R_A = R_max_A / (1 + np.exp(-kappa_star_A * (t - t0_A)))
+R_B = R_max_B / (1 + np.exp(-kappa_star_B * (t - t0_B)))
+
+plt.subplot(1, 2, 2)
+plt.plot(t, R_A, label=f'Archetype A (Nigeria)\n$t_0$ = {t0_A:.1f}, $R_{{max}}$ = {R_max_A:.2f}', color='darkorange', linewidth=2)
+plt.plot(t, R_B, label=f'Archetype B (Silicon Valley)\n$t_0$ = {t0_B:.1f}, $R_{{max}}$ = {R_max_B:.2f}', color='navy', linewidth=2)
+plt.axvline(t0_A, color='darkorange', linestyle=':', alpha=0.6, label='Inflection A')
+plt.axvline(t0_B, color='navy', linestyle=':', alpha=0.6, label='Inflection B')
+plt.title('Fig 2: Temporal Trajectory of Re-intermediation (S-Curve)', fontsize=12)
+plt.xlabel('Time (t)', fontsize=11)
+plt.ylabel('Degree of Re-intermediation (R)', fontsize=11)
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+# Print the mathematical proofs for the text
+print(f"--- MATHEMATICAL PROOFS FOR MANUSCRIPT ---")
+print(f"Equilibrium C* (Nigeria): {C_star_A:.3f} | Equilibrium C* (Silicon Valley): {C_star_B:.3f}")
+print(f"Effective Rate κ* (Nigeria): {kappa_star_A:.3f} | Effective Rate κ* (Silicon Valley): {kappa_star_B:.3f}")
+print(f"Inflection Point t0 (Nigeria): {t0_A:.1f} | Inflection Point t0 (Silicon Valley): {t0_B:.1f}")
+print(f"Asymptotic Ceiling R_max (Nigeria): {R_max_A:.3f} | Asymptotic Ceiling R_max (Silicon Valley): {R_max_B:.3f}")
